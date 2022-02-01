@@ -9,7 +9,7 @@ setup(
     packages=find_packages(include=['neureps']),
     version='0.0.1',
     license='MIT',
-    description='A PyTorch toolkit for Neural Representations',
+    description='A PyTorch toolkit for neural representations',
     long_description=README,
     long_description_content_type='text/markdown',
     author='Kristian Klemon',
