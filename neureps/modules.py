@@ -172,8 +172,7 @@ class MLP(nn.Module):
     def __init__(self,
                  in_dim: int,
                  out_dim: int,
-                 hidden_dim: int,
-                 num_layers: int,
+                 hidden_dims: List[int],
                  block_factory: BaseBlockFactory,
                  dropout: float = 0.0,
                  final_activation: Optional[Callable[[torch.Tensor], torch.Tensor]] = None):
@@ -181,21 +180,18 @@ class MLP(nn.Module):
 
         self.in_dim = in_dim
         self.out_dim = out_dim
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
+
+        self.hidden_dims = hidden_dims or []
         self.dropout = dropout
 
         self.blocks = nn.ModuleList()
 
-        if self.num_layers < 1:
-            raise ValueError(f'num_layers must be >= 1 (input to output); got {self.num_layers}')
+        in_dims = [self.in_dim] + self.hidden_dims
+        out_dims = self.hidden_dims + [self.out_dim]
 
-        for i in range(self.num_layers):
-            in_feat = self.in_dim if i == 0 else self.hidden_dim
-            out_feat = self.out_dim if i + 1 == self.num_layers else self.hidden_dim
-
+        for i, (in_feat, out_feat) in enumerate(zip(in_dims, out_dims)):
             is_first = i == 0
-            is_last = i + 1 == self.num_layers
+            is_last = i == len(self.hidden_dims)
 
             curr_block = [block_factory(
                 in_feat,
@@ -235,8 +231,7 @@ class BatchSeparatedMLP(MLP):
         model = MLP(
             self.in_dim,
             self.out_dim,
-            self.hidden_dim,
-            self.num_layers,
+            self.hidden_dims,
             self.block_factory,
             self.dropout,
             self.final_activation
@@ -300,8 +295,7 @@ class ImplicitDecoder(nn.Module):
     def __init__(self,
                  latent_dim: int,
                  out_dim: int,
-                 hidden_dim: int,
-                 num_layers: int,
+                 hidden_dims: List[int],
                  block_factory: BaseBlockFactory,
                  input_encoder: encodings.CoordinateEncoding = None,
                  modulation: bool = False,
@@ -323,8 +317,7 @@ class ImplicitDecoder(nn.Module):
         self.net = MLP(
             in_dim=input_encoder.out_dim + latent_dim * (not modulation),
             out_dim=out_dim,
-            hidden_dim=hidden_dim,
-            num_layers=num_layers,
+            hidden_dims=hidden_dims,
             block_factory=block_factory,
             dropout=dropout,
             final_activation=final_activation
