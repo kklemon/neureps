@@ -340,7 +340,7 @@ class ImplicitDecoder(nn.Module):
         if modulation:
             self.mod_network = ModulationNetwork(
                 in_dim=latent_dim,
-                mod_dims=[hidden_dim for _ in range(num_layers - 1)],
+                mod_dims=hidden_dims,
                 activation=nn.ReLU
             )
 
