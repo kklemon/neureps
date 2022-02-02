@@ -250,12 +250,22 @@ class BatchSeparatedMLP(MLP):
         if isinstance(mlp, cls):
             raise AssertionError('Cannot copy from batch separated model. Deep copy the model directly instead.')
 
-        for src, trg in zip(mlp.parameters(), model.parameters()):
-            trg.data.copy_(
-                utils.batch_expand(src, len(trg))
-            )
+        model.apply_mlp(mlp)
 
         return model
+
+    def apply_mlp(self, mlp: MLP):
+        if isinstance(mlp, BatchSeparatedMLP):
+            raise AssertionError('Cannot copy from batch separated model. Deep copy the model directly instead.')
+
+        with torch.no_grad():
+            for src, trg in zip(mlp.parameters(), self.parameters()):
+                if src.shape != trg.shape[1:]:
+                    raise AssertionError('Expected source and target parameters to match in shape except for '
+                                         'batch dimension.')
+                trg.data.copy_(
+                    utils.batch_expand(src, self.batch_size)
+                )
 
     def get_model_by_index(self, idx):
         model = MLP(
