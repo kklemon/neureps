@@ -9,6 +9,10 @@ def spatial_unsqueeze(x, num_dims: int):
     return x[(slice(None),) * non_feature_dims + (None,) * num_dims + (slice(None),)]
 
 
+def batch_expand(x, batch_size: int):
+    return x.unsqueeze(0).repeat([batch_size] + [1] * x.ndim)
+
+
 def meshgrid(*size: int):
     tensors = [torch.linspace(-1, 1, n) for n in size]
 

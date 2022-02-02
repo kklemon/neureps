@@ -109,7 +109,7 @@ class BatchSeparatedLinear(nn.Module):
         self.init_weights()
 
     def init_weights(self):
-        for i in range(self.num_models):
+        for i in range(self.batch_size):
             w = self.weight[i]
             nn.init.kaiming_uniform_(w, a=math.sqrt(5))
             if self.bias is not None:
@@ -140,7 +140,7 @@ class BatchSeparatedLinear(nn.Module):
         return linear
 
     def get_layers(self):
-        return list(map(self.get_layer_by_index, range(self.num_models)))
+        return list(map(self.get_layer_by_index, range(self.batch_size)))
 
 
 class BaseBlockFactory:
@@ -182,6 +182,7 @@ class MLP(nn.Module):
         self.out_dim = out_dim
 
         self.hidden_dims = hidden_dims or []
+        self.block_factory = block_factory
         self.dropout = dropout
 
         self.blocks = nn.ModuleList()
@@ -220,12 +221,41 @@ class BatchSeparatedMLP(MLP):
     def __init__(self, batch_size: int, block_factory: BaseBlockFactory, *args, **kwargs):
 
         block_factory = copy(block_factory)
-        block_factory.linear_cls = partial(BatchSeparatedLinear, num_models=batch_size)
+        block_factory.linear_cls = partial(BatchSeparatedLinear, batch_size=batch_size)
 
         super().__init__(*args, block_factory=block_factory, **kwargs)
 
         self.block_factory = block_factory
         self.batch_size = batch_size
+
+    def forward(self, x, *args, **kwargs):
+        if len(x) != self.batch_size:
+            raise ValueError(f'Batch size of input ({len(x)}) must match model\'s batch size ({self.batch_size}) for '
+                             f'batch separated model.')
+
+        return super().forward(x, *args, **kwargs)
+
+    @classmethod
+    def from_mlp(cls, mlp: MLP, batch_size: int):
+        model = cls(
+            batch_size,
+            block_factory=mlp.block_factory,
+            in_dim=mlp.in_dim,
+            out_dim=mlp.out_dim,
+            hidden_dims=mlp.hidden_dims,
+            dropout=mlp.dropout,
+            final_activation=mlp.final_activation
+        )
+
+        if isinstance(mlp, cls):
+            raise AssertionError('Cannot copy from batch separated model. Deep copy the model directly instead.')
+
+        for src, trg in zip(mlp.parameters(), model.parameters()):
+            trg.data.copy_(
+                utils.batch_expand(src, len(trg))
+            )
+
+        return model
 
     def get_model_by_index(self, idx):
         model = MLP(
